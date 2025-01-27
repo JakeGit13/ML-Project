@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from scipy import stats
+import pickle
 
 class SimpleAutoencoder:
     def __init__(self, input_dim, encoding_dim, learning_rate=0.01):
@@ -209,3 +210,24 @@ print("\nReconstruction error per feature:")
 for feature in features:
     mse = np.mean((analysis_df[feature] - reconstructed_df[feature]) ** 2)
     print(f"{feature}: {mse:.4f}")
+
+
+
+    # Add this at the end of your existing autoencoder script
+import pickle
+
+# Create a dictionary with all the data we need for visualization
+visualization_data = {
+    'history': history,
+    'features': features,
+    'encoded_features': encoded_features,
+    'reconstructed_data': reconstructed_data,
+    'analysis_df': analysis_df,
+    'species_richness': df['Number of species'].values
+}
+
+# Save the data
+print("\nSaving data for visualization...")
+with open('autoencoder_results.pkl', 'wb') as f:
+    pickle.dump(visualization_data, f)
+print("Data saved successfully!")
