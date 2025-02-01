@@ -1,4 +1,4 @@
-number,Country,Population denisty (sq km),Average Elevation (m),Average annual precipitiation (mm),Mean temp in C,Extent of Forest (1000 ha),Number of species,area (sq km),latitude,island
+number,Country,Population density (sq km),Average Elevation (m),Average annual precipitiation (mm),Mean temp in C,Extent of Forest (1000 ha),Number of species,area (sq km),latitude,island
 1,Austria,3.4,910,"1,110",8.7,3899,197,83858,48.2,0
 2,Belgium,383,181,847,12,689,88,30510,50.85,0
 3,Bulgaria,61,472,608,12.3,3893,211,110994,42.68,0
