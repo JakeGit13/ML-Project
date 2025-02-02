@@ -72,7 +72,7 @@ class SimpleAutoencoder:
         val_size = int(val_fraction * n_samples)
         return X[indices[val_size:]], X[indices[:val_size]]
     
-    def train(self, X, epochs=100, batch_size=32, verbose=True, val_fraction=0.2):
+    def train(self, X, epochs=200, batch_size=32, verbose=True, val_fraction=0.2):
         """Train the autoencoder with integrated early stopping"""
         if verbose:
             print(f"\nTraining on {len(X)} samples ({int((1-val_fraction)*len(X))} train, {int(val_fraction*len(X))} validation)")
@@ -81,7 +81,7 @@ class SimpleAutoencoder:
         n_samples = X_train.shape[0]
         history = {'train_loss': [], 'val_loss': []}
         best_val_loss = float('inf')
-        patience, patience_counter = 5, 0
+        patience, patience_counter = 8, 0
         min_delta = 0.001
         
         for epoch in range(epochs):
@@ -182,7 +182,7 @@ def main():
     
     # Train autoencoder
     autoencoder = SimpleAutoencoder(len(features), 2, learning_rate=0.01)
-    history = autoencoder.train(X_normalized, epochs=100, batch_size=8, verbose=True)
+    history = autoencoder.train(X_normalized, epochs=500, batch_size=8, verbose=True)
     
     # Analyze and save results
     encoded_features, reconstructed_data, analysis_df = analyze_results(autoencoder, X_normalized, df, features)

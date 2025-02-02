@@ -1,190 +1,181 @@
-import matplotlib.pyplot as plt
-import numpy as np
 import pickle
-import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 
-def load_data(filepath='autoencoder_results.pkl'):
-    """Load the autoencoder results and verify data structure."""
-    print("Loading data from pickle file...")
+
+def load_and_verify_data(filepath='autoencoder_results.pkl'):
+    """Load data and print key information for verification."""
     with open(filepath, 'rb') as f:
         data = pickle.load(f)
     
-    # Verify expected keys are present
-    expected_keys = ['history', 'features', 'encoded_features', 
-                    'reconstructed_data', 'species_richness']
-    missing_keys = [key for key in expected_keys if key not in data]
-    if missing_keys:
-        raise KeyError(f"Missing expected keys: {missing_keys}")
+    # Print data structure for verification
+    print("\nData structure verification:")
+    print(f"Number of features: {len(data['features'])}")
+    print(f"Encoded features shape: {data['encoded_features'].shape}")
+    print(f"Features available: {data['features']}")
     
-    print("Data loaded successfully!")
     return data
 
-def create_visualizations(data):
-    """Create comprehensive visualizations using minimal dependencies."""
-    plt.style.use('default')
+def create_correlation_matrix(data):
+    """Generate correlation matrix between original features and encoded dimensions."""
+    # Initialize correlation matrix
+    correlations = np.zeros((len(data['features']), 2))
     
-    # 1. Training Loss Evolution
-    plt.figure(figsize=(10, 6))
-    epochs = range(1, len(data['history']) + 1)
-    plt.plot(epochs, data['history'], 'b-', linewidth=2, label='Training Loss')
-    
-    # Add trend line
-    z = np.polyfit(epochs, data['history'], 1)
-    p = np.poly1d(z)
-    plt.plot(epochs, p(epochs), "r--", alpha=0.8, 
-             label=f'Trend (slope: {z[0]:.4f})')
-    
-    plt.title('Autoencoder Training Progress', fontsize=12)
-    plt.xlabel('Epoch', fontsize=10)
-    plt.ylabel('Loss', fontsize=10)
-    plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(fontsize=9)
-    plt.tight_layout()
-    plt.savefig('loss_evolution.png', dpi=300, bbox_inches='tight')
-    plt.close()
-
-   # Replace the existing 2D visualization section with this:
-
-    # 3. Integrated 2D Visualization
-    plt.figure(figsize=(12, 8))
-    
-    # Create base scatter plot (always works with species richness)
-    scatter = plt.scatter(data['encoded_features'][:, 0], 
-                         data['encoded_features'][:, 1],
-                         c=data['species_richness'],
-                         cmap='viridis',
-                         alpha=0.7)
-    
-    plt.colorbar(scatter, label='Species Richness')
-    
-    # Add population density encoding if available
-    density_cols = [col for col in data['features'] if 'density' in col.lower()]
-    if density_cols:
-        # Update point sizes based on population density
-        pop_density_idx = data['features'].index(density_cols[0])
-        pop_density = data['reconstructed_data'][:, pop_density_idx]
-        plt.scatter(data['encoded_features'][:, 0], 
-                   data['encoded_features'][:, 1],
-                   c=data['species_richness'],
-                   s=np.log1p(pop_density) * 100,
-                   cmap='viridis',
-                   alpha=0.7)
+    # Calculate correlations for each feature with both encoded dimensions
+    for i, feature in enumerate(data['features']):
+        original_feature = data['analysis_df'][feature].values
+        correlations[i, 0] = np.corrcoef(original_feature, data['encoded_features'][:, 0])[0, 1]
+        correlations[i, 1] = np.corrcoef(original_feature, data['encoded_features'][:, 1])[0, 1]
         
-        # Add annotation for highest density
-        max_density_idx = np.argmax(pop_density)
-        plt.annotate('Highest Population Density',
-                    xy=(data['encoded_features'][max_density_idx, 0],
-                        data['encoded_features'][max_density_idx, 1]),
-                    xytext=(30, 30),
-                    textcoords='offset points',
-                    fontsize=9,
-                    arrowprops=dict(arrowstyle='->',
-                                   connectionstyle='arc3,rad=0.2'))
+        # Print correlations for verification
+        print(f"\n{feature}:")
+        print(f"  Dimension 1: {correlations[i, 0]:.4f}")
+        print(f"  Dimension 2: {correlations[i, 1]:.4f}")
     
-    # Always add highest species richness annotation
-    max_richness_idx = np.argmax(data['species_richness'])
-    plt.annotate('Highest Species Richness',
-                xy=(data['encoded_features'][max_richness_idx, 0],
-                    data['encoded_features'][max_richness_idx, 1]),
-                xytext=(-30, -30),
-                textcoords='offset points',
-                fontsize=9,
-                arrowprops=dict(arrowstyle='->',
-                               connectionstyle='arc3,rad=-0.2'))
-    
-    plt.xlabel('First Encoded Dimension', fontsize=10)
-    plt.ylabel('Second Encoded Dimension', fontsize=10)
-    plt.title('Ecological Patterns in Reduced Dimensional Space\n' +
-             'Color: Species Richness',
-             fontsize=12, pad=20)
-    plt.grid(True, linestyle='--', alpha=0.3)
-    
-    plt.tight_layout()
-    plt.savefig('2d_embedding.png', dpi=300, bbox_inches='tight')
-    plt.close()
+    return correlations
 
-    # 4. Feature Reconstruction Analysis
-    reconstructed_df = pd.DataFrame(data['reconstructed_data'], 
-                                  columns=data['features'])
-    
-    errors = []
-    for feature in data['features']:
-        error = np.mean((reconstructed_df[feature] - 
-                        reconstructed_df[feature].mean()) ** 2)
-        errors.append({'feature': feature, 'error': error})
-    
-    error_df = pd.DataFrame(errors)
-    error_df = error_df.sort_values('error', ascending=False)
-    
-    plt.figure(figsize=(12, 6))
-    bars = plt.bar(range(len(error_df)), error_df['error'], alpha=0.8)
-    
-    plt.xticks(range(len(error_df)), 
-               error_df['feature'], 
-               rotation=45, 
-               ha='right')
-    
-    # Add value labels on bars
-    for bar in bars:
-        height = bar.get_height()
-        plt.text(bar.get_x() + bar.get_width()/2., height,
-                f'{height:.3f}',
-                ha='center', va='bottom',
-                fontsize=8)
-    
-    plt.title('Feature Reconstruction Analysis', fontsize=12)
-    plt.ylabel('Mean Squared Error', fontsize=10)
-    plt.grid(True, axis='y', linestyle='--', alpha=0.7)
-    plt.tight_layout()
-    plt.savefig('reconstruction_analysis.png', dpi=300, bbox_inches='tight')
-    plt.close()
-
-    # 5. Correlation Matrix
+def plot_correlation_matrix(correlations, features):
+    """Create and save correlation matrix visualization."""
     plt.figure(figsize=(10, 8))
     
-    # Calculate correlations between encoded dimensions and features
-    correlations = []
-    for feature in data['features']:
-        feature_data = reconstructed_df[feature]
-        corr_dim1 = np.corrcoef(data['encoded_features'][:, 0], feature_data)[0,1]
-        corr_dim2 = np.corrcoef(data['encoded_features'][:, 1], feature_data)[0,1]
-        correlations.append([corr_dim1, corr_dim2])
-    
-    correlations = np.array(correlations)
-    
-    # Create correlation matrix plot
+    # Create heatmap
     im = plt.imshow(correlations, cmap='RdBu', aspect='auto', vmin=-1, vmax=1)
-    plt.colorbar(im, label='Correlation Coefficient')
+    plt.colorbar(im, label='Correlation')
     
-    # Add correlation values as text
-    for i in range(len(data['features'])):
+    # Add text annotations
+    for i in range(len(features)):
         for j in range(2):
             plt.text(j, i, f'{correlations[i,j]:.2f}', 
-                    ha='center', va='center', color='black')
+                    ha='center', va='center',
+                    color='black')
     
+    # Labels and formatting
     plt.xticks([0, 1], ['Dimension 1', 'Dimension 2'])
-    plt.yticks(range(len(data['features'])), data['features'], ha='right')
-    plt.title('Feature Correlations with Encoded Dimensions', fontsize=12)
+    plt.yticks(range(len(features)), features)
+    plt.title('Feature Correlations with Encoded Dimensions')
     
     plt.tight_layout()
     plt.savefig('correlation_matrix.png', dpi=300, bbox_inches='tight')
     plt.close()
 
-if __name__ == "__main__":
+
+def plot_training_history(data):
+    """Visualize training dynamics with confidence bands."""
+    train_loss = data['history']['train_loss']
+    val_loss = data['history']['val_loss']
+    epochs = range(1, len(train_loss) + 1)
+    
+    plt.figure(figsize=(10, 6))
+    
+    # Plot main loss curves
+    plt.plot(epochs, train_loss, 'b-', label='Training Loss', alpha=0.7)
+    plt.plot(epochs, val_loss, 'r-', label='Validation Loss', alpha=0.7)
+    
+    # Add trend line
+    z = np.polyfit(epochs, train_loss, 1)
+    trend = np.poly1d(z)
+    plt.plot(epochs, trend(epochs), 'k--', 
+             label=f'Trend (slope: {z[0]:.2e})', alpha=0.5)
+    
+    plt.title('Autoencoder Training Dynamics')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.grid(True, alpha=0.3)
+    plt.legend()
+    plt.tight_layout()
+    
+    plt.savefig('training_dynamics.png', dpi=300, bbox_inches='tight')
+    plt.close()
+
+
+def plot_latent_space(data):
+    """Create a simplified visualization of the latent space focusing on key patterns."""
+    encoded_features = data['encoded_features']
+    
+    # Create figure with two subplots
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+    
+    # 1. Species richness with island status
+    scatter1 = ax1.scatter(encoded_features[:,0], encoded_features[:,1],
+                          c=data['species_richness'], cmap='viridis',
+                          alpha=0.7)
+    # Add island/mainland markers
+    is_island = data['analysis_df']['island'] == 1
+    ax1.scatter(encoded_features[is_island,0], encoded_features[is_island,1],
+                facecolors='none', edgecolors='red', alpha=0.5)
+    
+    ax1.set_title('Species Richness Distribution\n(Red circles: Islands)')
+    ax1.set_xlabel('Dimension 1 (Island-Mainland)')
+    ax1.set_ylabel('Dimension 2 (Climate)')
+    plt.colorbar(scatter1, ax=ax1, label='Number of Species')
+    
+    # 2. Temperature gradient
+    scatter2 = ax2.scatter(encoded_features[:,0], encoded_features[:,1],
+                          c=data['analysis_df']['Mean temp in C'],
+                          cmap='RdBu_r', alpha=0.7)
+    ax2.set_title('Temperature Distribution')
+    ax2.set_xlabel('Dimension 1 (Island-Mainland)')
+    ax2.set_ylabel('Dimension 2 (Climate)')
+    plt.colorbar(scatter2, ax=ax2, label='Mean Temperature (°C)')
+    
+    plt.tight_layout()
+    plt.savefig('latent_space_simplified.png', dpi=300, bbox_inches='tight')
+    plt.close()
+
+def plot_reconstruction_quality(data):
+    """Visualize reconstruction quality for key ecological features."""
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    # Calculate reconstruction error for each feature
+    features = data['features']
+    reconstructed = data['reconstructed_data']
+    original = data['analysis_df'][features].values
+    
+    errors = np.mean((original - reconstructed)**2, axis=0)
+    
+    # Sort features by reconstruction error
+    sorted_idx = np.argsort(errors)
+    sorted_features = [features[i] for i in sorted_idx]
+    sorted_errors = errors[sorted_idx]
+    
+    # Create bar plot
+    bars = ax.barh(range(len(features)), sorted_errors)
+    ax.set_yticks(range(len(features)))
+    ax.set_yticklabels(sorted_features)
+    ax.set_xlabel('Mean Squared Reconstruction Error')
+    ax.set_title('Feature Reconstruction Quality')
+    
+    plt.tight_layout()
+    plt.savefig('reconstruction_quality.png', dpi=300, bbox_inches='tight')
+    plt.close()
+
+def main():
     try:
-        print("\nStarting visualization process...")
-        data = load_data()
+        print("Loading autoencoder results...")
+        data = load_and_verify_data()
         
-        print("\nCreating visualizations...")
-        create_visualizations(data)
+        print("\nGenerating visualizations...")
         
-        print("\nVisualizations created successfully!")
-        print("Generated files:")
-        print("- loss_evolution.png")
-        print("- population_patterns.png")
-        print("- integrated_patterns.png")
-        print("- reconstruction_analysis.png")
+        # Create correlation matrix
+        print("1. Calculating feature correlations...")
+        correlations = create_correlation_matrix(data)
+        plot_correlation_matrix(correlations, data['features'])
+        
+        # Add training dynamics plot
+        print("2. Creating training dynamics visualization...")
+        plot_training_history(data)
+
+        plot_latent_space(data)
+
+        plot_reconstruction_quality(data)
+        
+        print("\nVisualization complete! Generated files:")
+        print("- correlation_matrix.png")
+        print("- training_dynamics.png")
         
     except Exception as e:
         print(f"\nError occurred: {str(e)}")
-        print("Please check your data structure and column names.")
+        print("Please verify data structure and file availability.")
+
+if __name__ == "__main__":
+    main()
